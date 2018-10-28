@@ -1,0 +1,53 @@
+- hosts: all
+  user: root
+  port: 22
+  vars:
+    cf: "/etc/zabbix/zabbix_agentd.conf"
+    repo: "http://repo.zabbix.com/zabbix/2.2/rhel/6/x86_64/zabbix-release-2.2-1.el6.noarch.rpm"
+    zscript: "/etc/zabbix/script"
+    cron: "/etc/cron.d/ma3ki"
+    zserv: '{{ zserv }}'
+    giturl: "https://raw.githubusercontent.com/ma3ki/ks/master"
+    iptables: "/etc/sysconfig/iptables"
+    iprule: "-A INPUT -m state --state NEW -m tcp -p tcp -s {{zserv}} --dport 10050 -j ACCEPT"    
+  tasks:
+  - name: "install zabbix repository"
+    yum: name={{repo}} state=present
+  - name: "install zabbix-agent, zabbix-sender"
+    yum: name={{item}} state=installed
+    with_items:
+    - zabbix-agent
+    - zabbix-sender
+  - name: "set Server"
+    lineinfile: dest={{cf}} state=present regexp='^Server=' line=Server={{zserv}}
+  - name: "get Hostname"
+    command: hostname
+    register: zhost
+  - name: "set Hostname"
+    lineinfile: dest={{cf}} state=present regexp='^Hostname=' line=Hostname={{zhost.stdout}}
+  - name: "add UserParameter"
+    lineinfile: dest={{cf}} state=present line="UserParameter=mem.info[*],awk '/^$1:/{print $$2*1024}' /proc/meminfo"
+  - name: "add UserParameter"
+    lineinfile: dest={{cf}} state=present line="UserParameter=proc.info[*],{{zscript}}/proc.info.sh $1 $2 $3"
+  - name: "be sure zabbix-agent is running and enabled"
+    service: name=zabbix-agent state=running enabled=yes
+  - name: "mkdir confdir"
+    file: dest={{zscript}} state=directory
+  - name: "get script"
+    get_url: url={{giturl}}/{{item}} dest={{zscript}}
+    with_items:
+    - proc.info.sh
+    - proc.info.cron.sh
+  - name: "chmod script"
+    file: path={{zscript}}/{{item}} mode=0755
+    with_items:
+    - proc.info.sh
+    - proc.info.cron.sh
+  - name: "add cron"
+    shell: printf "# for zabbix\n* * * * * root {{zscript}}/proc.info.cron.sh > /dev/null 2>&1\n" >> {{cron}}
+  - name: "set iptables"
+    lineinfile: dest={{iptables}} state=present regexp=" 10050 " insertbefore="--dport 22" line="{{iprule}}"
+  - name: "restart iptables"
+    service: name={{iptables}} state=restarted
+    ignore_errors: True
+

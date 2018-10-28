@@ -1,0 +1,32 @@
+config:
+  hostname: example.net
+  generation: 5
+  syslog: on
+  lock: on
+  lock-item: logmonitor.lock
+  zabbix-sender: off
+  zabbix-server: 127.0.0.1
+  zabbix-sender-timeout: 5
+  zabbix-sender-sleep: 0.25
+  zabbix-sender-random-sleep: 1
+  zabbix-sender-failed-size-limit: 1000000
+loadAverage:
+  file: /proc/loadavg
+  sum:
+    la.avg1:
+      filter: '^(\d+\.\d+) '
+    la.avg5:
+      filter: '^[\d\.]+ (\d+\.\d+) '
+    la.avg15:
+      filter: '^[\d\.]+ [\d\.]+ (\d+\.\d+) '
+netstat-an:
+  command: 'LANG=C netstat -anp'
+  geoip_count:
+    connect2zabbix_geocode:
+      filter: '^tcp\s+\d+\s+\d+\s+(?P<code>(\d+\.){3}\d+):10050'
+      ignore:
+        - 127.0.0.1
+    connect2zabbix_geoname:
+      filter: '^tcp\s+\d+\s+\d+\s+(?P<name>(\d+\.){3}\d+):10050'
+      ignore:
+        - 127.0.0.1

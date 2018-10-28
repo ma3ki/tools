@@ -1,0 +1,17 @@
+- hosts: all
+  user: root
+  port: 22
+  vars:
+    cf: "/etc/security/limits.conf"
+  tasks:
+  - name: "Increasing open files"
+    shell: sed -i "/^# End of file/i * {{item}} nofile 4096" {{cf}}
+    with_items:
+    - soft
+    - hard
+  - name: "unlimited core file size"
+    shell: sed -i "/^# End of file/i * {{item}} core unlimited" {{cf}}
+    with_items:
+    - soft
+    - hard
+

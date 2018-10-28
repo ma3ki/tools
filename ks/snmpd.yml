@@ -1,0 +1,34 @@
+- hosts: all
+  user: root
+  port: 22
+  vars:
+    cf: "/etc/snmp/snmpd.conf"
+    zserv: '{{ zserv }}'
+    iptables: "/etc/sysconfig/iptables"
+    iprule: "-A INPUT -m state --state NEW -m udp -p udp -s {{zserv}} --dport 161 -j ACCEPT"    
+  tasks:
+  - name: "install net-snmp, net-snmp-utils"
+    yum: name={{item}} state=installed
+    with_items:
+    - net-snmp
+    - net-snmp-utils
+  - name: "set com2sec"
+    lineinfile: dest={{cf}} state=present regexp='^com2sec notConfigUser' line='com2sec mynetwork {{zserv}} public'
+  - name: "set group"
+    lineinfile: dest={{cf}} state=present regexp='^group   notConfigGroup v1' line='group mynetwork_grp v1 mynetwork'
+  - name: "set group"
+    lineinfile: dest={{cf}} state=present regexp='^group   notConfigGroup v2c' line='group mynetwork_grp v2c mynetwork'
+  - name: "view comment out"
+    command: sed -i 's/^view/#view/' {{cf}}
+  - name: "set group"
+    lineinfile: dest={{cf}} state=present regexp='^#view' line='view    all           included   .1 80'
+  - name: "set access"
+    lineinfile: dest={{cf}} state=present regexp='^access  notConfigGroup' line='access mynetwork_grp "" any noauth exact all none none'
+  - name: "be sure snmpd is running and enabled"
+    service: name=snmpd state=running enabled=yes
+  - name: "set iptables"
+    lineinfile: dest={{iptables}} state=present regexp=" 161 " insertbefore="--dport 22" line="{{iprule}}"
+  - name: "restart iptables"
+    service: name={{iptables}} state=restarted
+    ignore_errors: True
+

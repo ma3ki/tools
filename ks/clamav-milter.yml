@@ -1,0 +1,36 @@
+- hosts: all
+  user: root
+  port: 22
+  vars:
+    freshclam: "/etc/freshclam.conf"
+    cmilter: "/etc/clamav-milter.conf"
+    port: "6000"
+    iptables: "/etc/sysconfig/iptables"
+    iprule: "-A INPUT -m state --state NEW -m tcp -p tcp --dport {{port}} -j ACCEPT"
+  tasks:
+  - name: "install clamav, clamav-db, clamav-milter, clamd"
+    yum: name={{item}} state=installed
+    with_items:
+    - clamav
+    - clamav-db
+    - clamav-milter
+    - clamd
+  - name: "set freshclam.conf"
+    lineinfile: dest={{freshclam}} state=present regexp='^#DatabaseMirror db.XY.clamav.net' line='DatabaseMirror db.jp.clamav.net'
+  - name: "set clamav-milter.conf"
+    lineinfile: dest={{cmilter}} state=present regexp='^#AddHeader Replace' line='AddHeader Replace'
+  - name: "set clamav-milter.conf"
+    lineinfile: dest={{cmilter}} state=present regexp='^MilterSocket' line='MilterSocket inet:{{port}}'
+  - name: "be sure clamav-milter is running and enabled"
+    service: name={{item}} state=running enabled=yes
+    with_items:
+    - clamd
+    - clamav-milter
+  - name: "update"
+    command: freshclam
+  - name: "set iptables"
+    lineinfile: dest={{iptables}} state=present regexp=" 6000 " insertbefore="--dport 22" line="{{iprule}}"
+  - name: "restart iptables"
+    service: name={{iptables}} state=restarted
+    ignore_errors: True
+

@@ -1,0 +1,33 @@
+- hosts: all
+  user: root
+  port: 22
+  vars:
+    cf: "/etc/sysctl.conf"
+    rc: "/etc/rc.d/rc.local"
+  tasks:
+  - name: "add comment"
+    lineinfile: dest={{cf}} state=present line="# Following Setting is written by Ansible."
+  - name: "delete sysctl setting"
+    sysctl: name={{item}} state=absent reload=no
+    with_items:
+    - net.bridge.bridge-nf-call-ip6tables
+    - net.bridge.bridge-nf-call-iptables
+    - net.bridge.bridge-nf-call-arptables
+  - name: "Set output corefile"
+    sysctl: name=fs.suid_dumpable value=1 state=present reload=no
+  - name: "Set output corefile path"
+    sysctl: name=kernel.core_pattern value=/var/crash/core.%e.%p.%s state=present reload=no
+  - name: "Increasing wmem_max"
+    sysctl: name=net.core.wmem_max value=1048576 state=present reload=no
+  - name: "Increasing rmem_max"
+    sysctl: name=net.core.rmem_max value=1048576 state=present reload=no
+  - name: "Increasing ip_conntrack_max (350 bytes/1 tracking)"
+    sysctl: name=net.nf_conntrack_max value=300000 state=present reload=no
+  - name: "Reducing tcp_fin_timeout"
+    sysctl: name=net.ipv4.tcp_fin_timeout value=45 state=present reload=yes
+    ignore_errors: True
+  - name: "mkdir for output corefile"
+    file: dest=/var/crash state=directory mode=0777
+  - name: "It execute 'sysctl -p' at the time of the next boot"
+    shell: printf "sysctl -p >> /root/ks-post.log && sed -i 's/^sysctl.*//' {{rc}}\n" >> {{rc}}
+
